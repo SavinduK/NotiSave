@@ -1,0 +1,6 @@
+{
+  "name": "Notify & Clip",
+  "description": "Clean, modern notification and clipboard manager with history, copy, and delete actions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
