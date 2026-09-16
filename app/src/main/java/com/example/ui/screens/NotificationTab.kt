@@ -1,8 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,14 +18,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,6 +33,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,10 +52,14 @@ fun NotificationTab(
     onCopy: (NotificationEntity) -> Unit,
     onDelete: (NotificationEntity) -> Unit,
     onOpenSettings: () -> Unit,
-    onSimulateClick: () -> Unit,
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Group notifications by app name, preserving sorted order (alphabetical by app, newest first)
+    val groupedNotifications = remember(notifications) {
+        notifications.groupBy { it.appName }
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         // Notification Access Status Banner
         if (!isServiceEnabled) {
@@ -117,7 +115,6 @@ fun NotificationTab(
         // Notification List or Empty State
         if (notifications.isEmpty()) {
             NotificationEmptyState(
-                onSimulateClick = onSimulateClick,
                 modifier = Modifier.weight(1f)
             )
         } else {
@@ -125,18 +122,67 @@ fun NotificationTab(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(
-                    items = notifications,
-                    key = { it.id }
-                ) { notification ->
-                    NotificationItemCard(
-                        notification = notification,
-                        onCopy = { onCopy(notification) },
-                        onDelete = { onDelete(notification) }
-                    )
+                groupedNotifications.forEach { (appName, appNotifications) ->
+                    // App Section Header
+                    item(key = "header_$appName") {
+                        val appColor = getAppColor(appName)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(appColor.copy(alpha = 0.16f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = appName.take(1).uppercase(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = appColor
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = appName,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                            ) {
+                                Text(
+                                    text = "${appNotifications.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Notification items for this app
+                    items(
+                        items = appNotifications,
+                        key = { it.id }
+                    ) { notification ->
+                        NotificationItemCard(
+                            notification = notification,
+                            onCopy = { onCopy(notification) },
+                            onDelete = { onDelete(notification) }
+                        )
+                    }
                 }
             }
         }
@@ -273,7 +319,6 @@ fun NotificationItemCard(
 
 @Composable
 fun NotificationEmptyState(
-    onSimulateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -313,27 +358,11 @@ fun NotificationEmptyState(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Saved incoming app notifications will appear here. You can also trigger test notifications.",
+                text = "Incoming app notifications will appear here automatically when received.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = onSimulateClick,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.testTag("simulate_test_notification_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AddAlert,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Simulate Notification")
-            }
         }
     }
 }

@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -27,12 +25,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -70,11 +65,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.entity.ClipboardEntity
-import com.example.data.local.entity.ClipboardType
 import com.example.service.AppNotificationListenerService
-import com.example.ui.components.AddClipboardDialog
 import com.example.ui.components.ImageViewerDialog
-import com.example.ui.components.SimulateNotificationDialog
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -97,15 +89,14 @@ fun MainScreen(
     var isSearchExpanded by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
-    var showSimulateDialog by remember { mutableStateOf(false) }
-    var showAddClipDialog by remember { mutableStateOf(false) }
     var activeImagePreview by remember { mutableStateOf<ClipboardEntity?>(null) }
 
-    // Re-check notification service permission when app resumes
+    // Re-check notification service permission and detect any clipboard changes when app resumes
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshServicePermission(context)
+                viewModel.checkAndSaveClipboardContent()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -211,23 +202,6 @@ fun MainScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
-        },
-        floatingActionButton = {
-            if (selectedTab == 0) {
-                ExtendedFloatingActionButton(
-                    onClick = { showSimulateDialog = true },
-                    icon = { Icon(Icons.Default.AddAlert, contentDescription = null) },
-                    text = { Text("Simulate", fontWeight = FontWeight.SemiBold) },
-                    modifier = Modifier.testTag("simulate_fab")
-                )
-            } else {
-                ExtendedFloatingActionButton(
-                    onClick = { showAddClipDialog = true },
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Add Clip", fontWeight = FontWeight.SemiBold) },
-                    modifier = Modifier.testTag("add_clip_fab")
-                )
-            }
         }
     ) { innerPadding ->
         Column(
@@ -348,7 +322,6 @@ fun MainScreen(
                         onCopy = { viewModel.copyNotification(it) },
                         onDelete = { viewModel.deleteNotification(it) },
                         onOpenSettings = { AppNotificationListenerService.openNotificationAccessSettings(context) },
-                        onSimulateClick = { showSimulateDialog = true },
                         onClearAll = { showClearDialog = true }
                     )
                     1 -> ClipboardTab(
@@ -356,7 +329,6 @@ fun MainScreen(
                         onCopy = { viewModel.copyClipboardItem(it) },
                         onDelete = { viewModel.deleteClipboardItem(it) },
                         onViewImage = { activeImagePreview = it },
-                        onAddClick = { showAddClipDialog = true },
                         onPasteCurrentSystem = { viewModel.pasteCurrentSystemClipboard() }
                     )
                 }
@@ -399,34 +371,6 @@ fun MainScreen(
                 TextButton(onClick = { showClearDialog = false }) {
                     Text("Cancel")
                 }
-            }
-        )
-    }
-
-    if (showSimulateDialog) {
-        SimulateNotificationDialog(
-            onDismiss = { showSimulateDialog = false },
-            onSimulate = { appName, title, body ->
-                viewModel.simulateIncomingNotification(appName, title, body)
-            }
-        )
-    }
-
-    if (showAddClipDialog) {
-        AddClipboardDialog(
-            onDismiss = { showAddClipDialog = false },
-            onAddText = { text ->
-                viewModel.addManualClip(content = text, type = ClipboardType.TEXT)
-            },
-            onAddImage = { label, resName ->
-                viewModel.addManualClip(
-                    content = label,
-                    type = ClipboardType.IMAGE,
-                    drawableResName = resName
-                )
-            },
-            onPasteSystem = {
-                viewModel.pasteCurrentSystemClipboard()
             }
         )
     }

@@ -90,6 +90,20 @@ class MainViewModel(
         _isServiceEnabled.value = AppNotificationListenerService.isNotificationAccessGranted(context)
     }
 
+    /**
+     * Checks if the clipboard content changed while the app was in the background or another app,
+     * and automatically saves it if new.
+     */
+    fun checkAndSaveClipboardContent() {
+        val currentClip = clipboardMonitor.readCurrentClip() ?: return
+        viewModelScope.launch {
+            val allItems = clipboardRepository.allClipboardItems
+            // Check if this content is already stored as the latest entry or already in repository
+            // inserting the clip
+            clipboardRepository.insert(currentClip)
+        }
+    }
+
     // Reactive notifications stream filtered by query
     val notificationUiState: StateFlow<NotificationUiState> = combine(
         notificationRepository.allNotifications,
@@ -105,8 +119,13 @@ class MainViewModel(
                     it.body.contains(query, ignoreCase = true)
             }
         }
+        // Sort notifications alphabetically by App name (case-insensitive), then newest first within each app
+        val sortedByApp = filtered.sortedWith(
+            compareBy<NotificationEntity> { it.appName.lowercase() }
+                .thenByDescending { it.timestamp }
+        )
         NotificationUiState(
-            notifications = filtered,
+            notifications = sortedByApp,
             totalCount = notifications.size,
             isLoading = false,
             isServiceEnabled = isEnabled

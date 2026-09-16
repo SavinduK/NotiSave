@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
@@ -28,7 +27,6 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -61,14 +59,12 @@ fun ClipboardTab(
     onCopy: (ClipboardEntity) -> Unit,
     onDelete: (ClipboardEntity) -> Unit,
     onViewImage: (ClipboardEntity) -> Unit,
-    onAddClick: () -> Unit,
     onPasteCurrentSystem: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         if (clipboardItems.isEmpty()) {
             ClipboardEmptyState(
-                onAddClick = onAddClick,
                 onPasteCurrentSystem = onPasteCurrentSystem,
                 modifier = Modifier.weight(1f)
             )
@@ -77,7 +73,7 @@ fun ClipboardTab(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(
@@ -315,7 +311,6 @@ fun ClipboardItemCard(
 
 @Composable
 fun ClipboardEmptyState(
-    onAddClick: () -> Unit,
     onPasteCurrentSystem: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -364,34 +359,18 @@ fun ClipboardEmptyState(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onAddClick,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.testTag("add_clip_empty_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Add Item")
-                }
-
-                OutlinedButton(
-                    onClick = onPasteCurrentSystem,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.testTag("paste_system_empty_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentPaste,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Paste Active Clip")
-                }
+            OutlinedButton(
+                onClick = onPasteCurrentSystem,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("paste_system_empty_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentPaste,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Paste Active Clip")
             }
         }
     }
