@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.ButtonDefaults
@@ -32,11 +35,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +68,9 @@ fun NotificationTab(
     val groupedNotifications = remember(notifications) {
         notifications.groupBy { it.appName }
     }
+
+    // Track collapsed app sections by app name
+    var collapsedApps by rememberSaveable { mutableStateOf(setOf<String>()) }
 
     Column(modifier = modifier.fillMaxSize()) {
         // Notification Access Status Banner
@@ -118,6 +130,39 @@ fun NotificationTab(
                 modifier = Modifier.weight(1f)
             )
         } else {
+            // Category header summary bar with toggle all categories
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${groupedNotifications.size} ${if (groupedNotifications.size == 1) "Category" else "Categories"} • ${notifications.size} ${if (notifications.size == 1) "item" else "items"}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val allCollapsed = groupedNotifications.keys.isNotEmpty() && groupedNotifications.keys.all { it in collapsedApps }
+                TextButton(
+                    onClick = {
+                        collapsedApps = if (allCollapsed) {
+                            emptySet()
+                        } else {
+                            groupedNotifications.keys.toSet()
+                        }
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.testTag("toggle_all_categories_button")
+                ) {
+                    Text(
+                        text = if (allCollapsed) "Expand all" else "Collapse all",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -126,62 +171,98 @@ fun NotificationTab(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 groupedNotifications.forEach { (appName, appNotifications) ->
-                    // App Section Header
+                    val isCollapsed = appName in collapsedApps
+
+                    // App Section Header (Clickable to collapse/expand)
                     item(key = "header_$appName") {
                         val appColor = getAppColor(appName)
-                        Row(
+                        val chevronRotation by animateFloatAsState(
+                            targetValue = if (isCollapsed) -90f else 0f,
+                            label = "chevron_rotation_$appName"
+                        )
+
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 10.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(top = 10.dp, bottom = 4.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    collapsedApps = if (isCollapsed) {
+                                        collapsedApps - appName
+                                    } else {
+                                        collapsedApps + appName
+                                    }
+                                }
+                                .testTag("app_section_header_$appName"),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Box(
+                            Row(
                                 modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(appColor.copy(alpha = 0.16f)),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .background(appColor.copy(alpha = 0.16f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = appName.take(1).uppercase(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = appColor
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = appName.take(1).uppercase(),
-                                    style = MaterialTheme.typography.labelMedium,
+                                    text = appName,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = appColor
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
                                 )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = appName,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                            ) {
-                                Text(
-                                    text = "${appNotifications.size}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isCollapsed) appColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface
+                                ) {
+                                    Text(
+                                        text = if (isCollapsed) "${appNotifications.size} collapsed" else "${appNotifications.size}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isCollapsed) appColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isCollapsed) "Expand $appName notifications" else "Collapse $appName notifications",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .rotate(chevronRotation)
                                 )
                             }
                         }
                     }
 
-                    // Notification items for this app
-                    items(
-                        items = appNotifications,
-                        key = { it.id }
-                    ) { notification ->
-                        NotificationItemCard(
-                            notification = notification,
-                            onCopy = { onCopy(notification) },
-                            onDelete = { onDelete(notification) }
-                        )
+                    // Notification items for this app (only shown when not collapsed)
+                    if (!isCollapsed) {
+                        items(
+                            items = appNotifications,
+                            key = { it.id }
+                        ) { notification ->
+                            NotificationItemCard(
+                                notification = notification,
+                                onCopy = { onCopy(notification) },
+                                onDelete = { onDelete(notification) }
+                            )
+                        }
                     }
                 }
             }

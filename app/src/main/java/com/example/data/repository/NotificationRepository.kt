@@ -11,6 +11,23 @@ class NotificationRepository(private val notificationDao: NotificationDao) {
 
     val allNotifications: Flow<List<NotificationEntity>> = notificationDao.getAllNotifications()
 
+    suspend fun getLatestNotification(): NotificationEntity? =
+        notificationDao.getLatestNotification()
+
+    /**
+     * Saves the notification only if it is different from the last saved notification.
+     * If the current notification is identical to the last saved notification, it will not be saved.
+     * Returns true if saved, false if skipped as duplicate.
+     */
+    suspend fun insertIfDifferent(notification: NotificationEntity): Boolean {
+        val lastSaved = notificationDao.getLatestNotification()
+        if (lastSaved != null && isIdentical(lastSaved, notification)) {
+            return false
+        }
+        notificationDao.insertNotification(notification)
+        return true
+    }
+
     suspend fun insert(notification: NotificationEntity): Long =
         notificationDao.insertNotification(notification)
 
@@ -22,4 +39,17 @@ class NotificationRepository(private val notificationDao: NotificationDao) {
 
     suspend fun clearAll() =
         notificationDao.clearAllNotifications()
+
+    companion object {
+        /**
+         * Checks whether two notifications are identical in app identity, title, and body.
+         */
+        fun isIdentical(a: NotificationEntity, b: NotificationEntity): Boolean {
+            val sameApp = a.packageName.equals(b.packageName, ignoreCase = true) ||
+                a.appName.equals(b.appName, ignoreCase = true)
+            val sameTitle = a.title.trim() == b.title.trim()
+            val sameBody = a.body.trim() == b.body.trim()
+            return sameApp && sameTitle && sameBody
+        }
+    }
 }

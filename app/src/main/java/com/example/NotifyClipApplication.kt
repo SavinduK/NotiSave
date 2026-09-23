@@ -2,10 +2,7 @@ package com.example
 
 import android.app.Application
 import com.example.data.local.AppDatabase
-import com.example.data.local.entity.ClipboardEntity
-import com.example.data.local.entity.ClipboardType
 import com.example.data.local.entity.NotificationEntity
-import com.example.data.repository.ClipboardRepository
 import com.example.data.repository.NotificationRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +19,6 @@ class NotifyClipApplication : Application() {
 
     val database by lazy { AppDatabase.getDatabase(this) }
     val notificationRepository by lazy { NotificationRepository(database.notificationDao()) }
-    val clipboardRepository by lazy { ClipboardRepository(database.clipboardDao()) }
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +38,13 @@ class NotifyClipApplication : Application() {
                         title = "Engineering #general",
                         body = "Sprint planning is scheduled for 2:30 PM today. Please update your tickets before the sync.",
                         timestamp = now - 1000 * 60 * 12
+                    ),
+                    NotificationEntity(
+                        appName = "Slack",
+                        packageName = "com.Slack",
+                        title = "Design review update",
+                        body = "New mockups posted for mobile revision. Please leave feedback before 5 PM.",
+                        timestamp = now - 1000 * 60 * 30
                     ),
                     NotificationEntity(
                         appName = "Gmail",
@@ -65,49 +68,21 @@ class NotifyClipApplication : Application() {
                         timestamp = now - 1000 * 60 * 240
                     ),
                     NotificationEntity(
+                        appName = "WhatsApp",
+                        packageName = "com.whatsapp",
+                        title = "Family Group",
+                        body = "Dinner reservation is confirmed for 7:00 PM this Sunday.",
+                        timestamp = now - 1000 * 60 * 280
+                    ),
+                    NotificationEntity(
                         appName = "GitHub",
                         packageName = "com.github.android",
                         title = "Pull Request #142 Merged",
-                        body = "feature/clipboard-image-thumbnails has been merged into main by team-lead.",
+                        body = "feature/collapsible-app-categories has been merged into main by team-lead.",
                         timestamp = now - 1000 * 60 * 360
                     )
                 )
                 initialNotifications.forEach { notificationRepository.insert(it) }
-            }
-
-            val existingClipboard = clipboardRepository.allClipboardItems.first()
-            if (existingClipboard.isEmpty()) {
-                val now = System.currentTimeMillis()
-                val initialClips = listOf(
-                    ClipboardEntity(
-                        content = "git checkout -b feature/clipboard-history-sync origin/main",
-                        type = ClipboardType.TEXT,
-                        timestamp = now - 1000 * 60 * 15
-                    ),
-                    ClipboardEntity(
-                        content = "Q3 Performance & Analytics Chart Snapshot",
-                        type = ClipboardType.IMAGE,
-                        drawableResName = "sample_chart",
-                        timestamp = now - 1000 * 60 * 50
-                    ),
-                    ClipboardEntity(
-                        content = "https://developer.android.com/jetpack/compose/designsystems/material3",
-                        type = ClipboardType.TEXT,
-                        timestamp = now - 1000 * 60 * 110
-                    ),
-                    ClipboardEntity(
-                        content = "Office Supplies & Equipment Receipt Invoice",
-                        type = ClipboardType.IMAGE,
-                        drawableResName = "sample_memo",
-                        timestamp = now - 1000 * 60 * 200
-                    ),
-                    ClipboardEntity(
-                        content = "Meeting agenda:\n1. Metrics review\n2. User retention insights\n3. Q4 Roadmap targets",
-                        type = ClipboardType.TEXT,
-                        timestamp = now - 1000 * 60 * 320
-                    )
-                )
-                initialClips.forEach { clipboardRepository.insert(it) }
             }
         }
     }

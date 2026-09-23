@@ -79,8 +79,12 @@ class AppNotificationListenerService : NotificationListenerService() {
 
             serviceScope.launch {
                 try {
-                    NotifyClipApplication.instance.notificationRepository.insert(notificationEntity)
-                    Log.d(TAG, "Saved notification from $appName: $title")
+                    val saved = NotifyClipApplication.instance.notificationRepository.insertIfDifferent(notificationEntity)
+                    if (saved) {
+                        Log.d(TAG, "Saved notification from $appName: $title")
+                    } else {
+                        Log.d(TAG, "Skipped notification because it is identical to the last saved notification: $appName: $title")
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error persisting notification", e)
                 }

@@ -1,17 +1,15 @@
 package com.example.ui.viewmodel
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.NotifyClipApplication
-import com.example.data.local.entity.ClipboardEntity
-import com.example.data.local.entity.ClipboardType
 import com.example.data.local.entity.NotificationEntity
-import com.example.data.repository.ClipboardRepository
 import com.example.data.repository.NotificationRepository
 import com.example.service.AppNotificationListenerService
-import com.example.service.ClipboardMonitor
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,7 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * UI State for the Notifications tab.
+ * UI State for the Notification History screen.
  */
 data class NotificationUiState(
     val notifications: List<NotificationEntity> = emptyList(),
@@ -34,25 +32,11 @@ data class NotificationUiState(
 )
 
 /**
- * UI State for the Clipboard tab.
- */
-data class ClipboardUiState(
-    val clipboardItems: List<ClipboardEntity> = emptyList(),
-    val totalCount: Int = 0,
-    val isLoading: Boolean = false
-)
-
-/**
- * MainViewModel managing data state and actions for both Notifications and Clipboard tabs.
+ * MainViewModel managing data state and actions for Notification history.
  */
 class MainViewModel(
-    private val notificationRepository: NotificationRepository,
-    private val clipboardRepository: ClipboardRepository,
-    private val clipboardMonitor: ClipboardMonitor
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
-
-    private val _selectedTab = MutableStateFlow(0)
-    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -63,25 +47,6 @@ class MainViewModel(
     private val _snackbarMessage = MutableSharedFlow<String>()
     val snackbarMessage: SharedFlow<String> = _snackbarMessage.asSharedFlow()
 
-    init {
-        // Start listening for primary clip changes through ClipboardMonitor
-        clipboardMonitor.startListening { newClip ->
-            viewModelScope.launch {
-                clipboardRepository.insert(newClip)
-                _snackbarMessage.emit("New item detected in clipboard!")
-            }
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        clipboardMonitor.stopListening()
-    }
-
-    fun setTab(index: Int) {
-        _selectedTab.value = index
-    }
-
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
     }
@@ -90,21 +55,7 @@ class MainViewModel(
         _isServiceEnabled.value = AppNotificationListenerService.isNotificationAccessGranted(context)
     }
 
-    /**
-     * Checks if the clipboard content changed while the app was in the background or another app,
-     * and automatically saves it if new.
-     */
-    fun checkAndSaveClipboardContent() {
-        val currentClip = clipboardMonitor.readCurrentClip() ?: return
-        viewModelScope.launch {
-            val allItems = clipboardRepository.allClipboardItems
-            // Check if this content is already stored as the latest entry or already in repository
-            // inserting the clip
-            clipboardRepository.insert(currentClip)
-        }
-    }
-
-    // Reactive notifications stream filtered by query
+    // Reactive notifications stream filtered by search query
     val notificationUiState: StateFlow<NotificationUiState> = combine(
         notificationRepository.allNotifications,
         _searchQuery,
@@ -136,48 +87,19 @@ class MainViewModel(
         initialValue = NotificationUiState(isLoading = true)
     )
 
-    // Reactive clipboard items stream filtered by query
-    val clipboardUiState: StateFlow<ClipboardUiState> = combine(
-        clipboardRepository.allClipboardItems,
-        _searchQuery
-    ) { items, query ->
-        val filtered = if (query.isBlank()) {
-            items
-        } else {
-            items.filter {
-                it.content.contains(query, ignoreCase = true)
-            }
-        }
-        ClipboardUiState(
-            clipboardItems = filtered,
-            totalCount = items.size,
-            isLoading = false
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = ClipboardUiState(isLoading = true)
-    )
-
     // --- Notification Actions ---
 
-    fun copyNotification(notification: NotificationEntity) {
+    fun copyNotification(context: Context, notification: NotificationEntity) {
         val textToCopy = if (notification.title.isNotBlank()) {
             "${notification.title}: ${notification.body}"
         } else {
             notification.body
         }
-        clipboardMonitor.copyText(textToCopy, label = notification.appName)
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val clip = ClipData.newPlainText(notification.appName, textToCopy)
+        clipboard?.setPrimaryClip(clip)
         viewModelScope.launch {
-            // Also store into clipboard history
-            clipboardRepository.insert(
-                ClipboardEntity(
-                    content = textToCopy,
-                    type = ClipboardType.TEXT,
-                    timestamp = System.currentTimeMillis()
-                )
-            )
-            _snackbarMessage.emit("Copied notification from ${notification.appName} to clipboard")
+            _snackbarMessage.emit("Copied notification text to clipboard")
         }
     }
 
@@ -204,75 +126,11 @@ class MainViewModel(
                 body = body,
                 timestamp = System.currentTimeMillis()
             )
-            notificationRepository.insert(entity)
-            _snackbarMessage.emit("Simulated notification from $appName")
-        }
-    }
-
-    // --- Clipboard Actions ---
-
-    fun copyClipboardItem(item: ClipboardEntity) {
-        when (item.type) {
-            ClipboardType.TEXT -> {
-                clipboardMonitor.copyText(item.content, label = "Clipboard snippet")
-                viewModelScope.launch {
-                    _snackbarMessage.emit("Text copied to clipboard")
-                }
-            }
-            ClipboardType.IMAGE -> {
-                // If URI is available, copy URI
-                if (item.imageUri != null) {
-                    clipboardMonitor.copyText(item.imageUri, label = "Image Link")
-                } else {
-                    clipboardMonitor.copyText(item.content, label = "Image Label")
-                }
-                viewModelScope.launch {
-                    _snackbarMessage.emit("Image reference copied to clipboard")
-                }
-            }
-        }
-    }
-
-    fun deleteClipboardItem(item: ClipboardEntity) {
-        viewModelScope.launch {
-            clipboardRepository.delete(item)
-            _snackbarMessage.emit("Clipboard entry deleted")
-        }
-    }
-
-    fun clearAllClipboard() {
-        viewModelScope.launch {
-            clipboardRepository.clearAll()
-            _snackbarMessage.emit("Clipboard history cleared")
-        }
-    }
-
-    fun addManualClip(content: String, type: ClipboardType = ClipboardType.TEXT, drawableResName: String? = null) {
-        viewModelScope.launch {
-            val newEntity = ClipboardEntity(
-                content = content,
-                type = type,
-                drawableResName = drawableResName,
-                timestamp = System.currentTimeMillis()
-            )
-            clipboardRepository.insert(newEntity)
-            if (type == ClipboardType.TEXT) {
-                clipboardMonitor.copyText(content)
-            }
-            _snackbarMessage.emit("Added item to clipboard history")
-        }
-    }
-
-    fun pasteCurrentSystemClipboard() {
-        val currentClip = clipboardMonitor.readCurrentClip()
-        if (currentClip != null) {
-            viewModelScope.launch {
-                clipboardRepository.insert(currentClip)
-                _snackbarMessage.emit("Captured active system clip!")
-            }
-        } else {
-            viewModelScope.launch {
-                _snackbarMessage.emit("System clipboard is currently empty")
+            val saved = notificationRepository.insertIfDifferent(entity)
+            if (saved) {
+                _snackbarMessage.emit("Added notification from $appName")
+            } else {
+                _snackbarMessage.emit("Skipped: Identical to the last saved notification")
             }
         }
     }
@@ -282,11 +140,7 @@ class MainViewModel(
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return MainViewModel(
-                        application.notificationRepository,
-                        application.clipboardRepository,
-                        ClipboardMonitor(application)
-                    ) as T
+                    return MainViewModel(application.notificationRepository) as T
                 }
             }
     }
