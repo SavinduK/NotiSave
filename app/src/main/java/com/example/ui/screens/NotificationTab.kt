@@ -22,9 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,8 +60,11 @@ import com.example.ui.util.DateTimeUtils
 fun NotificationTab(
     notifications: List<NotificationEntity>,
     isServiceEnabled: Boolean,
+    isFilterEnabled: Boolean = false,
+    onOpenAppFilter: () -> Unit = {},
     onCopy: (NotificationEntity) -> Unit,
     onDelete: (NotificationEntity) -> Unit,
+    onClearApp: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier
@@ -71,6 +76,7 @@ fun NotificationTab(
 
     // Track collapsed app sections by app name
     var collapsedApps by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var appToClear by remember { mutableStateOf<Pair<String, Int>?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
         // Notification Access Status Banner
@@ -80,7 +86,7 @@ fun NotificationTab(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -120,6 +126,48 @@ fun NotificationTab(
                     ) {
                         Text("Enable", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
+                }
+            }
+        }
+
+        // Active App Filter Status Banner
+        if (isFilterEnabled) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { onOpenAppFilter() }
+                    .testTag("filter_active_banner")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "App filter active: only selected apps are saved",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Edit",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -238,7 +286,23 @@ fun NotificationTab(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        appToClear = Pair(appName, appNotifications.size)
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("clear_app_${appName}_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = "Clear all notifications from $appName",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(2.dp))
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowDown,
                                     contentDescription = if (isCollapsed) "Expand $appName notifications" else "Collapse $appName notifications",
@@ -266,6 +330,41 @@ fun NotificationTab(
                     }
                 }
             }
+        }
+
+        // Batch clear confirmation dialog for single app
+        if (appToClear != null) {
+            AlertDialog(
+                onDismissRequest = { appToClear = null },
+                title = {
+                    Text("Clear ${appToClear?.first} Notifications?")
+                },
+                text = {
+                    Text("Delete all ${appToClear?.second} saved notifications from ${appToClear?.first}? This action cannot be undone.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val target = appToClear?.first
+                            appToClear = null
+                            if (target != null) {
+                                onClearApp(target)
+                            }
+                        },
+                        modifier = Modifier.testTag("confirm_clear_app_button")
+                    ) {
+                        Text("Clear All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { appToClear = null },
+                        modifier = Modifier.testTag("cancel_clear_app_button")
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

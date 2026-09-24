@@ -12,6 +12,7 @@ import android.text.TextUtils
 import android.util.Log
 import com.example.NotifyClipApplication
 import com.example.data.local.entity.NotificationEntity
+import com.example.data.repository.AppFilterManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -52,6 +53,12 @@ class AppNotificationListenerService : NotificationListenerService() {
 
             // Skip empty/silent utility notifications if they contain neither title nor body
             if (title.isBlank() && body.isBlank()) return
+
+            // Check if app is allowed by user's app filter preferences
+            if (!AppFilterManager.isAppAllowed(applicationContext, packageName)) {
+                Log.d(TAG, "Notification from $packageName skipped due to app filter settings")
+                return
+            }
 
             // Resolve readable application label
             val pm = applicationContext.packageManager

@@ -37,6 +37,9 @@ class NotificationRepository(private val notificationDao: NotificationDao) {
     suspend fun deleteById(id: Long) =
         notificationDao.deleteNotificationById(id)
 
+    suspend fun deleteByAppName(appName: String): Int =
+        notificationDao.deleteNotificationsByAppName(appName)
+
     suspend fun clearAll() =
         notificationDao.clearAllNotifications()
 

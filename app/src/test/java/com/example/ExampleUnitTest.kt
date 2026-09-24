@@ -106,5 +106,43 @@ class ExampleUnitTest {
     )
     assertFalse(NotificationRepository.isIdentical(lastSaved, differentAppNotification))
   }
+
+  @Test
+  fun testAppSelectionFilteringLogic() {
+    val selectedPackages = setOf("com.slack", "com.whatsapp")
+
+    // When filter is disabled, all apps should be allowed
+    val isFilterActiveDisabled = false
+    val appAllowed1 = !isFilterActiveDisabled || selectedPackages.contains("com.slack")
+    val appAllowed2 = !isFilterActiveDisabled || selectedPackages.contains("com.google.android.gm")
+    assertTrue(appAllowed1)
+    assertTrue(appAllowed2)
+
+    // When filter is enabled, only selected apps should be allowed
+    val isFilterActiveEnabled = true
+    val appAllowedSelected = !isFilterActiveEnabled || selectedPackages.contains("com.slack")
+    val appAllowedNonSelected = !isFilterActiveEnabled || selectedPackages.contains("com.google.android.gm")
+    assertTrue(appAllowedSelected)
+    assertFalse(appAllowedNonSelected)
+  }
+
+  @Test
+  fun testBatchClearSingleAppLogic() {
+    val initialNotifications = listOf(
+      NotificationEntity(id = 1, packageName = "com.slack", appName = "Slack", title = "1", body = "1", timestamp = 1L),
+      NotificationEntity(id = 2, packageName = "com.slack", appName = "Slack", title = "2", body = "2", timestamp = 2L),
+      NotificationEntity(id = 3, packageName = "com.whatsapp", appName = "WhatsApp", title = "3", body = "3", timestamp = 3L),
+      NotificationEntity(id = 4, packageName = "com.google.android.gm", appName = "Gmail", title = "4", body = "4", timestamp = 4L)
+    )
+
+    // Batch clear Slack notifications
+    val appToClear = "Slack"
+    val remainingNotifications = initialNotifications.filterNot { it.appName == appToClear }
+
+    assertEquals(2, remainingNotifications.size)
+    assertFalse(remainingNotifications.any { it.appName == "Slack" })
+    assertTrue(remainingNotifications.any { it.appName == "WhatsApp" })
+    assertTrue(remainingNotifications.any { it.appName == "Gmail" })
+  }
 }
 

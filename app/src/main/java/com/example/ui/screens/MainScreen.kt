@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
@@ -53,6 +54,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.service.AppNotificationListenerService
+import com.example.ui.components.AppSelectionDialog
 import com.example.ui.components.SimulateNotificationDialog
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -69,17 +71,21 @@ fun MainScreen(
 
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val notificationState by viewModel.notificationUiState.collectAsStateWithLifecycle()
+    val isFilterEnabled by viewModel.isFilterEnabled.collectAsStateWithLifecycle()
+    val selectableApps by viewModel.selectableApps.collectAsStateWithLifecycle()
 
     var isSearchExpanded by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var showSimulateDialog by remember { mutableStateOf(false) }
+    var showAppFilterDialog by remember { mutableStateOf(false) }
 
-    // Re-check notification service permission when app resumes
+    // Re-check notification service permission and app filters when app resumes
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshServicePermission(context)
+                viewModel.loadAppFilters(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -90,6 +96,7 @@ fun MainScreen(
 
     // Observe snackbar messages
     LaunchedEffect(Unit) {
+        viewModel.loadAppFilters(context)
         viewModel.snackbarMessage.collectLatest { message ->
             snackbarHostState.showSnackbar(message)
         }
@@ -164,6 +171,20 @@ fun MainScreen(
                         )
                     }
 
+                    IconButton(
+                        onClick = {
+                            viewModel.loadAppFilters(context)
+                            showAppFilterDialog = true
+                        },
+                        modifier = Modifier.testTag("app_filter_action_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Select apps to save",
+                            tint = if (isFilterEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     Box {
                         IconButton(
                             onClick = { showMenu = true },
@@ -176,6 +197,21 @@ fun MainScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("App filters") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.FilterList,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.loadAppFilters(context)
+                                    showAppFilterDialog = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Simulate sample notification") },
                                 leadingIcon = {
@@ -221,8 +257,14 @@ fun MainScreen(
             NotificationTab(
                 notifications = notificationState.notifications,
                 isServiceEnabled = notificationState.isServiceEnabled,
+                isFilterEnabled = isFilterEnabled,
+                onOpenAppFilter = {
+                    viewModel.loadAppFilters(context)
+                    showAppFilterDialog = true
+                },
                 onCopy = { viewModel.copyNotification(context, it) },
                 onDelete = { viewModel.deleteNotification(it) },
+                onClearApp = { viewModel.clearNotificationsForApp(it) },
                 onOpenSettings = { AppNotificationListenerService.openNotificationAccessSettings(context) },
                 onClearAll = { showClearDialog = true }
             )
@@ -261,9 +303,21 @@ fun MainScreen(
         SimulateNotificationDialog(
             onDismiss = { showSimulateDialog = false },
             onSimulate = { appName, title, body ->
-                viewModel.simulateIncomingNotification(appName, title, body)
+                viewModel.simulateIncomingNotification(context, appName, title, body)
                 showSimulateDialog = false
             }
+        )
+    }
+
+    if (showAppFilterDialog) {
+        AppSelectionDialog(
+            selectableApps = selectableApps,
+            isFilterEnabled = isFilterEnabled,
+            onFilterEnabledChange = { viewModel.setFilterEnabled(context, it) },
+            onToggleApp = { pkg, selected -> viewModel.toggleAppSelection(context, pkg, selected) },
+            onSelectAll = { viewModel.selectAllApps(context) },
+            onDeselectAll = { viewModel.deselectAllApps(context) },
+            onDismiss = { showAppFilterDialog = false }
         )
     }
 }

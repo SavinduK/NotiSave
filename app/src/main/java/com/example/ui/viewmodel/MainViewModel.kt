@@ -8,7 +8,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.NotifyClipApplication
 import com.example.data.local.entity.NotificationEntity
+import com.example.data.repository.AppFilterManager
 import com.example.data.repository.NotificationRepository
+import com.example.data.repository.SelectableApp
 import com.example.service.AppNotificationListenerService
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +46,12 @@ class MainViewModel(
     private val _isServiceEnabled = MutableStateFlow(false)
     val isServiceEnabled: StateFlow<Boolean> = _isServiceEnabled.asStateFlow()
 
+    private val _isFilterEnabled = MutableStateFlow(false)
+    val isFilterEnabled: StateFlow<Boolean> = _isFilterEnabled.asStateFlow()
+
+    private val _selectableApps = MutableStateFlow<List<SelectableApp>>(emptyList())
+    val selectableApps: StateFlow<List<SelectableApp>> = _selectableApps.asStateFlow()
+
     private val _snackbarMessage = MutableSharedFlow<String>()
     val snackbarMessage: SharedFlow<String> = _snackbarMessage.asSharedFlow()
 
@@ -53,6 +61,43 @@ class MainViewModel(
 
     fun refreshServicePermission(context: Context) {
         _isServiceEnabled.value = AppNotificationListenerService.isNotificationAccessGranted(context)
+    }
+
+    fun loadAppFilters(context: Context) {
+        _isFilterEnabled.value = AppFilterManager.isFilterEnabled(context)
+        val recordedPackages = notificationUiState.value.notifications.map { it.packageName }.toSet()
+        _selectableApps.value = AppFilterManager.getSelectableApps(context, recordedPackages)
+    }
+
+    fun setFilterEnabled(context: Context, enabled: Boolean) {
+        AppFilterManager.setFilterEnabled(context, enabled)
+        _isFilterEnabled.value = enabled
+        viewModelScope.launch {
+            if (enabled) {
+                val selectedCount = _selectableApps.value.count { it.isSelected }
+                _snackbarMessage.emit("App filtering enabled: only saving $selectedCount selected apps")
+            } else {
+                _snackbarMessage.emit("Saving notifications from all apps")
+            }
+        }
+    }
+
+    fun toggleAppSelection(context: Context, packageName: String, selected: Boolean) {
+        AppFilterManager.togglePackageSelection(context, packageName, selected)
+        _selectableApps.value = _selectableApps.value.map {
+            if (it.packageName == packageName) it.copy(isSelected = selected) else it
+        }
+    }
+
+    fun selectAllApps(context: Context) {
+        val allPkgs = _selectableApps.value.map { it.packageName }.toSet()
+        AppFilterManager.setSelectedPackages(context, allPkgs)
+        _selectableApps.value = _selectableApps.value.map { it.copy(isSelected = true) }
+    }
+
+    fun deselectAllApps(context: Context) {
+        AppFilterManager.setSelectedPackages(context, emptySet())
+        _selectableApps.value = _selectableApps.value.map { it.copy(isSelected = false) }
     }
 
     // Reactive notifications stream filtered by search query
@@ -110,6 +155,16 @@ class MainViewModel(
         }
     }
 
+    /**
+     * Batch clears all notifications belonging to a single application.
+     */
+    fun clearNotificationsForApp(appName: String) {
+        viewModelScope.launch {
+            val deletedCount = notificationRepository.deleteByAppName(appName)
+            _snackbarMessage.emit("Cleared all $deletedCount notifications from $appName")
+        }
+    }
+
     fun clearAllNotifications() {
         viewModelScope.launch {
             notificationRepository.clearAll()
@@ -117,11 +172,16 @@ class MainViewModel(
         }
     }
 
-    fun simulateIncomingNotification(appName: String, title: String, body: String) {
+    fun simulateIncomingNotification(context: Context, appName: String, title: String, body: String) {
         viewModelScope.launch {
+            val packageName = "com.sample.${appName.lowercase().replace(" ", "")}"
+            if (!AppFilterManager.isAppAllowed(context, packageName)) {
+                _snackbarMessage.emit("Skipped: $appName is not selected in your App Filters")
+                return@launch
+            }
             val entity = NotificationEntity(
                 appName = appName,
-                packageName = "com.sample.${appName.lowercase().replace(" ", "")}",
+                packageName = packageName,
                 title = title,
                 body = body,
                 timestamp = System.currentTimeMillis()
