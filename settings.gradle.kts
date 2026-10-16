@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Notify & Clip"
+rootProject.name = "Notisave"
 
 include(":app")
