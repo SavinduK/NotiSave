@@ -108,22 +108,50 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun testAppSelectionFilteringLogic() {
+  fun testAppSelectionFilteringAlwaysEnabled() {
     val selectedPackages = setOf("com.slack", "com.whatsapp")
 
-    // When filter is disabled, all apps should be allowed
-    val isFilterActiveDisabled = false
-    val appAllowed1 = !isFilterActiveDisabled || selectedPackages.contains("com.slack")
-    val appAllowed2 = !isFilterActiveDisabled || selectedPackages.contains("com.google.android.gm")
-    assertTrue(appAllowed1)
-    assertTrue(appAllowed2)
+    // Filtering is always enabled: only selected apps are saved
+    val appAllowedSlack = selectedPackages.contains("com.slack")
+    val appAllowedWhatsApp = selectedPackages.contains("com.whatsapp")
+    val appAllowedGmail = selectedPackages.contains("com.google.android.gm")
 
-    // When filter is enabled, only selected apps should be allowed
-    val isFilterActiveEnabled = true
-    val appAllowedSelected = !isFilterActiveEnabled || selectedPackages.contains("com.slack")
-    val appAllowedNonSelected = !isFilterActiveEnabled || selectedPackages.contains("com.google.android.gm")
-    assertTrue(appAllowedSelected)
-    assertFalse(appAllowedNonSelected)
+    assertTrue(appAllowedSlack)
+    assertTrue(appAllowedWhatsApp)
+    assertFalse(appAllowedGmail)
+  }
+
+  @Test
+  fun test30DaysAutoDeleteCutoffLogic() {
+    val now = 1_700_000_000_000L
+    val thirtyDaysMillis = 30L * 24 * 60 * 60 * 1000L
+    val cutoff = now - thirtyDaysMillis
+
+    val recentNotification = NotificationEntity(
+      id = 1,
+      packageName = "com.slack",
+      appName = "Slack",
+      title = "Recent",
+      body = "10 days old",
+      timestamp = now - (10L * 24 * 60 * 60 * 1000L)
+    )
+
+    val oldNotification = NotificationEntity(
+      id = 2,
+      packageName = "com.slack",
+      appName = "Slack",
+      title = "Old",
+      body = "35 days old",
+      timestamp = now - (35L * 24 * 60 * 60 * 1000L)
+    )
+
+    assertTrue("Recent notification should be preserved", recentNotification.timestamp >= cutoff)
+    assertTrue("Old notification (> 30 days) should be deleted", oldNotification.timestamp < cutoff)
+
+    val notifications = listOf(recentNotification, oldNotification)
+    val remaining = notifications.filter { it.timestamp >= cutoff }
+    assertEquals(1, remaining.size)
+    assertEquals("Recent", remaining.first().title)
   }
 
   @Test

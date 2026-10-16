@@ -40,6 +40,19 @@ class NotificationRepository(private val notificationDao: NotificationDao) {
     suspend fun deleteByAppName(appName: String): Int =
         notificationDao.deleteNotificationsByAppName(appName)
 
+    suspend fun deleteOlderThan(cutoffTimestamp: Long): Int =
+        notificationDao.deleteOlderThan(cutoffTimestamp)
+
+    /**
+     * Cleans up all saved notifications older than 30 days (30 days * 24h * 60m * 60s * 1000ms).
+     * Returns the count of deleted notifications.
+     */
+    suspend fun cleanupOlderThan30Days(): Int {
+        val thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000L
+        val cutoff = System.currentTimeMillis() - thirtyDaysInMillis
+        return notificationDao.deleteOlderThan(cutoff)
+    }
+
     suspend fun clearAll() =
         notificationDao.clearAllNotifications()
 

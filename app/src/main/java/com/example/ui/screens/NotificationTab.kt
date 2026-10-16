@@ -130,48 +130,6 @@ fun NotificationTab(
             }
         }
 
-        // Active App Filter Status Banner
-        if (isFilterEnabled) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable { onOpenAppFilter() }
-                    .testTag("filter_active_banner")
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FilterList,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "App filter active: only selected apps are saved",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "Edit",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
         // Notification List or Empty State
         if (notifications.isEmpty()) {
             NotificationEmptyState(
@@ -187,7 +145,7 @@ fun NotificationTab(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${groupedNotifications.size} ${if (groupedNotifications.size == 1) "Category" else "Categories"} • ${notifications.size} ${if (notifications.size == 1) "item" else "items"}",
+                    text = "${groupedNotifications.size} ${if (groupedNotifications.size == 1) "Category" else "Categories"}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -274,18 +232,13 @@ fun NotificationTab(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isCollapsed) appColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface
-                                ) {
-                                    Text(
-                                        text = if (isCollapsed) "${appNotifications.size} collapsed" else "${appNotifications.size}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isCollapsed) appColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
+                                Text(
+                                    text = "${appNotifications.size}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 IconButton(
                                     onClick = {

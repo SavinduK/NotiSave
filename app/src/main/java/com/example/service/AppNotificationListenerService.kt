@@ -89,6 +89,10 @@ class AppNotificationListenerService : NotificationListenerService() {
                     val saved = NotifyClipApplication.instance.notificationRepository.insertIfDifferent(notificationEntity)
                     if (saved) {
                         Log.d(TAG, "Saved notification from $appName: $title")
+                        // If 30-day auto-delete is enabled, clean up older records
+                        if (AppFilterManager.isDeleteAfter30DaysEnabled(applicationContext)) {
+                            NotifyClipApplication.instance.notificationRepository.cleanupOlderThan30Days()
+                        }
                     } else {
                         Log.d(TAG, "Skipped notification because it is identical to the last saved notification: $appName: $title")
                     }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FilterList
@@ -19,7 +18,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,7 +53,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.service.AppNotificationListenerService
 import com.example.ui.components.AppSelectionDialog
-import com.example.ui.components.SimulateNotificationDialog
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.flow.collectLatest
 
@@ -72,12 +69,12 @@ fun MainScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val notificationState by viewModel.notificationUiState.collectAsStateWithLifecycle()
     val isFilterEnabled by viewModel.isFilterEnabled.collectAsStateWithLifecycle()
+    val isDeleteAfter30Days by viewModel.isDeleteAfter30Days.collectAsStateWithLifecycle()
     val selectableApps by viewModel.selectableApps.collectAsStateWithLifecycle()
 
     var isSearchExpanded by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
-    var showSimulateDialog by remember { mutableStateOf(false) }
     var showAppFilterDialog by remember { mutableStateOf(false) }
 
     // Re-check notification service permission and app filters when app resumes
@@ -143,15 +140,6 @@ fun MainScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
-                            if (notificationState.totalCount > 0) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Badge(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ) {
-                                    Text(notificationState.totalCount.toString())
-                                }
-                            }
                         }
                     }
                 },
@@ -181,7 +169,7 @@ fun MainScreen(
                         Icon(
                             imageVector = Icons.Default.FilterList,
                             contentDescription = "Select apps to save",
-                            tint = if (isFilterEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
 
@@ -210,20 +198,6 @@ fun MainScreen(
                                     showMenu = false
                                     viewModel.loadAppFilters(context)
                                     showAppFilterDialog = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Simulate sample notification") },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.AddAlert,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showSimulateDialog = true
                                 }
                             )
                             DropdownMenuItem(
@@ -299,21 +273,11 @@ fun MainScreen(
         )
     }
 
-    if (showSimulateDialog) {
-        SimulateNotificationDialog(
-            onDismiss = { showSimulateDialog = false },
-            onSimulate = { appName, title, body ->
-                viewModel.simulateIncomingNotification(context, appName, title, body)
-                showSimulateDialog = false
-            }
-        )
-    }
-
     if (showAppFilterDialog) {
         AppSelectionDialog(
             selectableApps = selectableApps,
-            isFilterEnabled = isFilterEnabled,
-            onFilterEnabledChange = { viewModel.setFilterEnabled(context, it) },
+            isDeleteAfter30Days = isDeleteAfter30Days,
+            onToggleDeleteAfter30Days = { viewModel.setDeleteAfter30Days(context, it) },
             onToggleApp = { pkg, selected -> viewModel.toggleAppSelection(context, pkg, selected) },
             onSelectAll = { viewModel.selectAllApps(context) },
             onDeselectAll = { viewModel.deselectAllApps(context) },

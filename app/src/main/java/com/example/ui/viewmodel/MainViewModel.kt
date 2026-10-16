@@ -46,8 +46,11 @@ class MainViewModel(
     private val _isServiceEnabled = MutableStateFlow(false)
     val isServiceEnabled: StateFlow<Boolean> = _isServiceEnabled.asStateFlow()
 
-    private val _isFilterEnabled = MutableStateFlow(false)
+    private val _isFilterEnabled = MutableStateFlow(true)
     val isFilterEnabled: StateFlow<Boolean> = _isFilterEnabled.asStateFlow()
+
+    private val _isDeleteAfter30Days = MutableStateFlow(false)
+    val isDeleteAfter30Days: StateFlow<Boolean> = _isDeleteAfter30Days.asStateFlow()
 
     private val _selectableApps = MutableStateFlow<List<SelectableApp>>(emptyList())
     val selectableApps: StateFlow<List<SelectableApp>> = _selectableApps.asStateFlow()
@@ -64,20 +67,32 @@ class MainViewModel(
     }
 
     fun loadAppFilters(context: Context) {
-        _isFilterEnabled.value = AppFilterManager.isFilterEnabled(context)
+        _isFilterEnabled.value = true
+        _isDeleteAfter30Days.value = AppFilterManager.isDeleteAfter30DaysEnabled(context)
         val recordedPackages = notificationUiState.value.notifications.map { it.packageName }.toSet()
         _selectableApps.value = AppFilterManager.getSelectableApps(context, recordedPackages)
+
+        // If 30-day auto-delete is enabled, trigger cleanup
+        if (_isDeleteAfter30Days.value) {
+            viewModelScope.launch {
+                notificationRepository.cleanupOlderThan30Days()
+            }
+        }
     }
 
-    fun setFilterEnabled(context: Context, enabled: Boolean) {
-        AppFilterManager.setFilterEnabled(context, enabled)
-        _isFilterEnabled.value = enabled
+    fun setDeleteAfter30Days(context: Context, enabled: Boolean) {
+        AppFilterManager.setDeleteAfter30DaysEnabled(context, enabled)
+        _isDeleteAfter30Days.value = enabled
         viewModelScope.launch {
             if (enabled) {
-                val selectedCount = _selectableApps.value.count { it.isSelected }
-                _snackbarMessage.emit("App filtering enabled: only saving $selectedCount selected apps")
+                val deleted = notificationRepository.cleanupOlderThan30Days()
+                if (deleted > 0) {
+                    _snackbarMessage.emit("Auto-delete enabled: Removed $deleted old notifications")
+                } else {
+                    _snackbarMessage.emit("Auto-delete after 30 days enabled")
+                }
             } else {
-                _snackbarMessage.emit("Saving notifications from all apps")
+                _snackbarMessage.emit("Auto-delete after 30 days disabled")
             }
         }
     }
@@ -169,29 +184,6 @@ class MainViewModel(
         viewModelScope.launch {
             notificationRepository.clearAll()
             _snackbarMessage.emit("All notifications cleared")
-        }
-    }
-
-    fun simulateIncomingNotification(context: Context, appName: String, title: String, body: String) {
-        viewModelScope.launch {
-            val packageName = "com.sample.${appName.lowercase().replace(" ", "")}"
-            if (!AppFilterManager.isAppAllowed(context, packageName)) {
-                _snackbarMessage.emit("Skipped: $appName is not selected in your App Filters")
-                return@launch
-            }
-            val entity = NotificationEntity(
-                appName = appName,
-                packageName = packageName,
-                title = title,
-                body = body,
-                timestamp = System.currentTimeMillis()
-            )
-            val saved = notificationRepository.insertIfDifferent(entity)
-            if (saved) {
-                _snackbarMessage.emit("Added notification from $appName")
-            } else {
-                _snackbarMessage.emit("Skipped: Identical to the last saved notification")
-            }
         }
     }
 

@@ -58,8 +58,8 @@ import kotlin.math.absoluteValue
 @Composable
 fun AppSelectionDialog(
     selectableApps: List<SelectableApp>,
-    isFilterEnabled: Boolean,
-    onFilterEnabledChange: (Boolean) -> Unit,
+    isDeleteAfter30Days: Boolean,
+    onToggleDeleteAfter30Days: (Boolean) -> Unit,
     onToggleApp: (packageName: String, selected: Boolean) -> Unit,
     onSelectAll: () -> Unit,
     onDeselectAll: () -> Unit,
@@ -145,19 +145,19 @@ fun AppSelectionDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Master Toggle Switch Card
+                // Auto Delete After 30 Days Toggle Switch Card
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = if (isFilterEnabled) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    color = if (isDeleteAfter30Days) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .clickable { onFilterEnabledChange(!isFilterEnabled) }
-                        .testTag("master_app_filter_toggle")
+                        .clickable { onToggleDeleteAfter30Days(!isDeleteAfter30Days) }
+                        .testTag("auto_delete_30_days_toggle")
                 ) {
                     Row(
                         modifier = Modifier
@@ -168,27 +168,23 @@ fun AppSelectionDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isFilterEnabled) "Filter enabled: Selected apps only" else "Filter disabled: All apps saved",
+                                text = "Delete messages after 30 days",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = if (isFilterEnabled) {
-                                    "Saving notifications only from the $selectedCount selected ${if (selectedCount == 1) "app" else "apps"} below."
-                                } else {
-                                    "Notifications from every app are currently being recorded."
-                                },
+                                text = "Automatically remove saved notifications older than 30 days.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Switch(
-                            checked = isFilterEnabled,
-                            onCheckedChange = { onFilterEnabledChange(it) },
-                            modifier = Modifier.testTag("filter_switch")
+                            checked = isDeleteAfter30Days,
+                            onCheckedChange = { onToggleDeleteAfter30Days(it) },
+                            modifier = Modifier.testTag("auto_delete_30_days_switch")
                         )
                     }
                 }
@@ -281,7 +277,6 @@ fun AppSelectionDialog(
                         items(filteredApps, key = { it.packageName }) { app ->
                             AppItemRow(
                                 app = app,
-                                isFilterEnabled = isFilterEnabled,
                                 onToggle = { onToggleApp(app.packageName, it) }
                             )
                         }
@@ -309,7 +304,6 @@ fun AppSelectionDialog(
 @Composable
 private fun AppItemRow(
     app: SelectableApp,
-    isFilterEnabled: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
     val appColor = remember(app.appName) {
@@ -328,7 +322,7 @@ private fun AppItemRow(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = if (app.isSelected && isFilterEnabled) {
+        color = if (app.isSelected) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)

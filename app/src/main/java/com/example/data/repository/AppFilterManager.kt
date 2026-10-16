@@ -14,7 +14,7 @@ data class SelectableApp(
 
 object AppFilterManager {
     private const val PREFS_NAME = "notify_app_filter_prefs"
-    private const val KEY_FILTER_ENABLED = "key_filter_enabled"
+    private const val KEY_DELETE_AFTER_30_DAYS = "key_delete_after_30_days"
     private const val KEY_SELECTED_PACKAGES = "key_selected_packages"
 
     private fun getPrefs(context: Context): SharedPreferences {
@@ -22,15 +22,21 @@ object AppFilterManager {
     }
 
     /**
-     * If false, notifications from all apps are captured (default).
-     * If true, only notifications from apps in [getSelectedPackages] are captured.
+     * App filter is always enabled to save notifications only from selected applications.
      */
-    fun isFilterEnabled(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_FILTER_ENABLED, false)
+    fun isFilterEnabled(@Suppress("UNUSED_PARAMETER") context: Context): Boolean {
+        return true
     }
 
-    fun setFilterEnabled(context: Context, enabled: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_FILTER_ENABLED, enabled).apply()
+    /**
+     * Preference toggle for auto-deleting notifications older than 30 days.
+     */
+    fun isDeleteAfter30DaysEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_DELETE_AFTER_30_DAYS, false)
+    }
+
+    fun setDeleteAfter30DaysEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_DELETE_AFTER_30_DAYS, enabled).apply()
     }
 
     fun getSelectedPackages(context: Context): Set<String> {
@@ -53,12 +59,9 @@ object AppFilterManager {
 
     /**
      * Checks if a notification from [packageName] should be saved.
-     * Returns true if filter is disabled, or if the package is in the selected set.
+     * Filter is always active; only packages in the selected set are saved.
      */
     fun isAppAllowed(context: Context, packageName: String): Boolean {
-        if (!isFilterEnabled(context)) {
-            return true
-        }
         val selected = getSelectedPackages(context)
         return selected.contains(packageName)
     }
